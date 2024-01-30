@@ -1,3 +1,4 @@
+
 //===----------------------------------------------------------------------===//
 //
 //                         BusTub
@@ -57,6 +58,8 @@ class ExtendibleHTableBucketPage {
    * @param max_size Max size of the bucket array
    */
   void Init(uint32_t max_size = HTableBucketArraySize(sizeof(MappingType)));
+
+  auto GetAndDelAll(std::vector<std::pair<KeyType, ValueType> > &vec, const KeyComparator &cmp) -> void;
 
   /**
    * Lookup a key

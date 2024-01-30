@@ -46,8 +46,10 @@ class BufferPoolManager {
    */
   ~BufferPoolManager();
 
-  /** @brief Return the size (number of frames) of the buffer pool. */
   auto GetPoolSize() -> size_t { return pool_size_; }
+
+  /** @brief Return the size (number of frames) of the buffer pool. */
+  auto ResSize() -> void {}
 
   /** @brief Return the pointer to all the pages in the buffer pool. */
   auto GetPages() -> Page * { return pages_; }
@@ -155,7 +157,7 @@ class BufferPoolManager {
    *
    * @brief Flush all the pages in the buffer pool to disk.
    */
-  void FlushAllPages();
+  [[maybe_unused]] void FlushAllPages();
 
   /**
    * TODO(P1): Add implementation
@@ -180,8 +182,8 @@ class BufferPoolManager {
 
   /** Array of buffer pool pages. */
   Page *pages_;
-  /** Pointer to the disk sheduler. */
-  std::unique_ptr<DiskScheduler> disk_scheduler_ __attribute__((__unused__));
+  /** Pointer to the disk manager. */
+  std::unique_ptr<DiskScheduler> disk_scheduler_;
   /** Pointer to the log manager. Please ignore this for P1. */
   LogManager *log_manager_ __attribute__((__unused__));
   /** Page table for keeping track of buffer pool pages. */

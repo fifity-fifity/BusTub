@@ -115,6 +115,7 @@ class ExtendibleHTableDirectoryPage {
   /**
    * Get the global depth of the hash table directory
    *
+   *
    * @return the global depth of the directory
    */
   auto GetGlobalDepth() const -> uint32_t;

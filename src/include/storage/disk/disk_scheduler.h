@@ -73,6 +73,8 @@ class DiskScheduler {
    */
   void StartWorkerThread();
 
+  void Work(std::thread th);
+
   using DiskSchedulerPromise = std::promise<bool>;
 
   /**
