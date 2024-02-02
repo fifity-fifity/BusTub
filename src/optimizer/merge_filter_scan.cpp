@@ -30,7 +30,6 @@ auto Optimizer::OptimizeMergeFilterScan(const AbstractPlanNodeRef &plan) -> Abst
       }
     }
   }
-
   return optimized_plan;
 }
 

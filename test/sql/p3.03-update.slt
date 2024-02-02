@@ -10,6 +10,9 @@ insert into t1 values (0, '🥰', 10), (1, '🥰🥰', 11), (2, '🥰🥰🥰', 
 ----
 5
 
+statement ok
+explain select * from t1;
+
 query
 select * from t1;
 ----

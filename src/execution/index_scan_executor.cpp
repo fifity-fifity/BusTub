@@ -17,20 +17,37 @@ IndexScanExecutor::IndexScanExecutor(ExecutorContext *exec_ctx, const IndexScanP
 
 void IndexScanExecutor::Init() {
   table_info_ = exec_ctx_->GetCatalog()->GetTable(plan_->table_oid_);
-  // auto index_info_ = exec_ctx_->GetCatalog()->GetTableIndexes(table_info_->name_);
-  auto index_info = exec_ctx_->GetCatalog()->GetIndex(plan_->table_oid_);
+  auto index_info = exec_ctx_->GetCatalog()->GetIndex(plan_->index_oid_);
   htable_ = dynamic_cast<HashTableIndexForTwoIntegerColumn *>(index_info->index_.get());
 }
 
 auto IndexScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
+  if (finished_) {
+    return false;
+  }
+  // std::cout << plan_->output_schema_->GetColumnCount() << std::endl;
+  std::vector<Value> values;
+  values.emplace_back(INTEGER, std::stoi(plan_->pred_key_->val_.ToString()));
+  std::vector<Column> v;
+  v.push_back(Column("KEY",INTEGER));
+  Schema tmp_schema(v);
   std::vector<RID> result;
-  htable_->ScanKey(*tuple, &result, 0);
+  htable_->ScanKey(Tuple(values, &tmp_schema), &result, 0);
+  // std::cout << "no" << std::endl;
   if (result.empty()) {
     return false;
   }
-  rid = result.data();
+  // for (auto m : result) {
+    // std::cout << m << std::endl;
+  // }
+  // std::cout << "yep" << std::endl;
+  *rid = *result.data();
   auto [tuple_meta, tmp_tuple] = table_info_->table_->GetTuple(*rid);
-  // tuple = &tmp_tuple;
+  *tuple = tmp_tuple;
+  // std::cout << tuple_meta.is_deleted_ << std::endl;
+  // std::cout << tmp_tuple.ToString(&GetOutputSchema()) << std::endl;
+  // std::cout << tuple->ToString(&GetOutputSchema()) << std::endl;
+  finished_ = true;
   return !tuple_meta.is_deleted_;
 }
 

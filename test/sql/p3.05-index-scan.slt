@@ -73,6 +73,9 @@ select * from t1 where v2 = -10;
 ----
 7 -10 645
 
+statement ok
+explain update t1 set v3 = 645, v1 = 8, v2 = -20 where v1 = 2;
+
 # Update some elements
 query
 update t1 set v3 = 645, v1 = 8, v2 = -20 where v1 = 2;
