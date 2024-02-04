@@ -35,20 +35,20 @@ auto BasicPageGuard::operator=(BasicPageGuard &&that) noexcept -> BasicPageGuard
 
 BasicPageGuard::~BasicPageGuard() { Drop(); }
 auto BasicPageGuard::UpgradeRead() -> ReadPageGuard {
-  auto tmp_bpm = std::move(bpm_);
-  auto tmp_page = std::move(page_);
+  auto tmp_bpm = bpm_;
+  auto tmp_page = page_;
   bpm_ = nullptr;
   page_ = nullptr;
   Drop();
-  return ReadPageGuard(tmp_bpm, tmp_page);
+  return {tmp_bpm, tmp_page};
 }
 auto BasicPageGuard::UpgradeWrite() -> WritePageGuard {
-  auto tmp_bpm = std::move(bpm_);
-  auto tmp_page = std::move(page_);
+  auto tmp_bpm = bpm_;
+  auto tmp_page = page_;
   bpm_ = nullptr;
   page_ = nullptr;
   Drop();
-  return WritePageGuard(tmp_bpm, tmp_page);
+  return {tmp_bpm, tmp_page};
 };  // NOLINT
 
 ReadPageGuard::ReadPageGuard(ReadPageGuard &&that) noexcept = default;

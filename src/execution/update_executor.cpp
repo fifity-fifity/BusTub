@@ -50,7 +50,7 @@ auto UpdateExecutor::Next(Tuple *tuple, RID *rid) -> bool {
     vec.emplace_back(new_tuple);
     ++count;
   }
-  for (auto& new_tuple : vec) {
+  for (auto &new_tuple : vec) {
     tuple_meta.is_deleted_ = false;
     auto tuple_rid = table_info_->table_->InsertTuple(tuple_meta, new_tuple, exec_ctx_->GetLockManager(),
                                                       exec_ctx_->GetTransaction(), table_info_->oid_);

@@ -49,4 +49,3 @@ class IndexScanExecutor : public AbstractExecutor {
   bool finished_{false};
 };
 }  // namespace bustub
-

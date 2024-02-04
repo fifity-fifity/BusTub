@@ -18,8 +18,8 @@ namespace bustub {
 
 void ExtendibleHTableHeaderPage::Init(uint32_t max_depth) {
   max_depth_ = max_depth;
-  for (size_t i = 0; i < HTABLE_HEADER_ARRAY_SIZE; ++i) {
-    directory_page_ids_[i] = INVALID_PAGE_ID;
+  for (int &directory_page_id : directory_page_ids_) {
+    directory_page_id = INVALID_PAGE_ID;
   }
 }
 

@@ -21,7 +21,7 @@ AggregationExecutor::AggregationExecutor(ExecutorContext *exec_ctx, const Aggreg
     : AbstractExecutor(exec_ctx),
       plan_(plan),
       child_executor_(std::move(child_executor)),
-      aht_ (plan_->aggregates_, plan_->agg_types_),
+      aht_(plan_->aggregates_, plan_->agg_types_),
       aht_iterator_(aht_.Begin()) {}
 
 void AggregationExecutor::Init() {
@@ -32,6 +32,11 @@ void AggregationExecutor::Init() {
     auto key = MakeAggregateKey(&tuple);
     auto value = MakeAggregateValue(&tuple);
     aht_.InsertCombine(key, value);
+    // std::cout << "key is " << key.group_bys_ << std::endl;
+    std::cout << "value size  is " << key.group_bys_.size() << std::endl;
+    for (auto v :key.group_bys_) {
+      std::cout << "key is " << v.ToString() << std::endl;
+    }
   }
   aht_iterator_ = aht_.Begin();
 }
@@ -52,11 +57,16 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
           break;
       }
     }
+    std::cout << "values size is " << values.size() << std::endl;
+    /*for (auto &v : values) {
+      std::cout << "v = " << v << std::endl;
+    }*/
     *tuple = Tuple(values, &GetOutputSchema());
     finished_ = true;
     return true;
   }
   if (aht_iterator_ == aht_.End()) {
+    std::cout << "aht_iterator == aht.End()" << std::endl;
     return false;
   }
   std::vector<Value> values(aht_iterator_.Key().group_bys_);
@@ -65,6 +75,7 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   }
   *tuple = Tuple(values, &GetOutputSchema());
   ++aht_iterator_;
+  std::cout << "Next() success, values size is " << values.size() << std::endl;
   return true;
 }
 

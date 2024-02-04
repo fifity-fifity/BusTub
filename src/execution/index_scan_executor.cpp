@@ -29,18 +29,14 @@ auto IndexScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   std::vector<Value> values;
   values.emplace_back(INTEGER, std::stoi(plan_->pred_key_->val_.ToString()));
   std::vector<Column> v;
-  v.push_back(Column("KEY",INTEGER));
+  v.emplace_back("KEY", INTEGER);
   Schema tmp_schema(v);
   std::vector<RID> result;
-  htable_->ScanKey(Tuple(values, &tmp_schema), &result, 0);
+  htable_->ScanKey(Tuple(values, &tmp_schema), &result, nullptr);
   // std::cout << "no" << std::endl;
   if (result.empty()) {
     return false;
   }
-  // for (auto m : result) {
-    // std::cout << m << std::endl;
-  // }
-  // std::cout << "yep" << std::endl;
   *rid = *result.data();
   auto [tuple_meta, tmp_tuple] = table_info_->table_->GetTuple(*rid);
   *tuple = tmp_tuple;
@@ -52,4 +48,3 @@ auto IndexScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
 }
 
 }  // namespace bustub
-

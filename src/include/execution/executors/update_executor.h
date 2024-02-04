@@ -70,6 +70,5 @@ class UpdateExecutor : public AbstractExecutor {
 
   std::vector<IndexInfo *> index_infos_;
   bool finished_{false};
-
 };
 }  // namespace bustub

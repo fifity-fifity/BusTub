@@ -16,7 +16,6 @@ auto Optimizer::OptimizeSeqScanAsIndexScan(const bustub::AbstractPlanNodeRef &pl
   auto optimized_plan = plan->CloneWithChildren(std::move(children));
 
   if (optimized_plan->GetType() == PlanType::SeqScan) {
-    std::cout << "1" << std::endl;
     const auto &seq_scan_plan = dynamic_cast<const SeqScanPlanNode &>(*optimized_plan);
     // std::cout<<"here filter_predicate is " << seq_scan_plan.filter_predicate_->ToString() << std::endl;
     if (seq_scan_plan.filter_predicate_ == nullptr) {
@@ -27,14 +26,14 @@ auto Optimizer::OptimizeSeqScanAsIndexScan(const bustub::AbstractPlanNodeRef &pl
       std::cout << "why size < 2" << std::endl;
       return optimized_plan;
     }
-    auto column_value_expression_ptr = dynamic_cast<ColumnValueExpression *>
-        (seq_scan_plan.filter_predicate_->children_[0].get());
+    auto column_value_expression_ptr =
+        dynamic_cast<ColumnValueExpression *>(seq_scan_plan.filter_predicate_->children_[0].get());
     if (column_value_expression_ptr == nullptr) {
       std::cout << "why nullptr" << std::endl;
       return optimized_plan;
     }
-    auto constant_value_expression_ptr = dynamic_cast<ConstantValueExpression *>
-        (seq_scan_plan.filter_predicate_->children_[1].get());
+    auto constant_value_expression_ptr =
+        dynamic_cast<ConstantValueExpression *>(seq_scan_plan.filter_predicate_->children_[1].get());
     // BUSTUB_ASSERT(optimized_plan->children_.size() == 1, "must have exactly one child");
     if (constant_value_expression_ptr == nullptr) {
       std::cout << "why nullptr" << std::endl;
@@ -48,7 +47,6 @@ auto Optimizer::OptimizeSeqScanAsIndexScan(const bustub::AbstractPlanNodeRef &pl
                                                  seq_scan_plan.filter_predicate_, constant_value_expression_ptr);
     }
   }
-  std::cout << "2" << std::endl;
   return optimized_plan;
 }
 

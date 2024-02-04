@@ -1,6 +1,10 @@
 # 4 pts
 
+statement ok
+explain select count(*) from __mock_table_tas_2023_fall;
+
 # How many TAs are there in 2023 Fall?
+
 query
 select count(*) from __mock_table_tas_2023_fall;
 ----
