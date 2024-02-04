@@ -29,14 +29,10 @@ void AggregationExecutor::Init() {
   Tuple tuple;
   RID rid;
   while (child_executor_->Next(&tuple, &rid)) {
+    // std::cout << "tuple.GetData " << tuple.GetData() << std::endl;
     auto key = MakeAggregateKey(&tuple);
     auto value = MakeAggregateValue(&tuple);
     aht_.InsertCombine(key, value);
-    // std::cout << "key is " << key.group_bys_ << std::endl;
-    std::cout << "value size  is " << key.group_bys_.size() << std::endl;
-    for (auto v :key.group_bys_) {
-      std::cout << "key is " << v.ToString() << std::endl;
-    }
   }
   aht_iterator_ = aht_.Begin();
 }
@@ -57,10 +53,6 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
           break;
       }
     }
-    std::cout << "values size is " << values.size() << std::endl;
-    /*for (auto &v : values) {
-      std::cout << "v = " << v << std::endl;
-    }*/
     *tuple = Tuple(values, &GetOutputSchema());
     finished_ = true;
     return true;
