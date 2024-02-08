@@ -31,7 +31,7 @@ auto InsertExecutor::Next([[maybe_unused]] Tuple *tuple, RID *rid) -> bool {
     return false;
   }
   auto count = 0;
-  TupleMeta tuple_meta{INVALID_TXN_ID, false};
+  TupleMeta tuple_meta{0, false};
   while (child_executor_->Next(tuple, rid)) {
     auto tuple_rid = table_info_->table_->InsertTuple(tuple_meta, *tuple, exec_ctx_->GetLockManager(),
                                                       exec_ctx_->GetTransaction(), table_info_->oid_);

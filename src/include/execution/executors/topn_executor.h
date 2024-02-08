@@ -59,9 +59,11 @@ class TopNExecutor : public AbstractExecutor {
   auto GetNumInHeap() -> size_t;
 
  private:
-  /** The TopN plan node to be executed */
+  /** The topn plan node to be executed */
   const TopNPlanNode *plan_;
   /** The child executor from which tuples are obtained */
   std::unique_ptr<AbstractExecutor> child_executor_;
+  std::vector<Tuple> tuples_{};
+  std::vector<Tuple>::reverse_iterator it_{};
 };
 }  // namespace bustub

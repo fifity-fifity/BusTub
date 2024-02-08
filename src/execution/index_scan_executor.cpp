@@ -40,9 +40,6 @@ auto IndexScanExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   *rid = *result.data();
   auto [tuple_meta, tmp_tuple] = table_info_->table_->GetTuple(*rid);
   *tuple = tmp_tuple;
-  // std::cout << tuple_meta.is_deleted_ << std::endl;
-  // std::cout << tmp_tuple.ToString(&GetOutputSchema()) << std::endl;
-  // std::cout << tuple->ToString(&GetOutputSchema()) << std::endl;
   finished_ = true;
   return !tuple_meta.is_deleted_;
 }

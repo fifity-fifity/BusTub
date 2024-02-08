@@ -31,9 +31,8 @@ auto UpdateExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   if (finished_) {
     return false;
   }
-  std::cout << "run update" << std::endl;
   auto count = 0;
-  TupleMeta tuple_meta{INVALID_TXN_ID, false};
+  TupleMeta tuple_meta{0, false};
   std::vector<Tuple> vec;
   while (child_executor_->Next(tuple, rid)) {
     tuple_meta.is_deleted_ = true;

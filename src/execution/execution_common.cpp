@@ -12,7 +12,37 @@ namespace bustub {
 
 auto ReconstructTuple(const Schema *schema, const Tuple &base_tuple, const TupleMeta &base_meta,
                       const std::vector<UndoLog> &undo_logs) -> std::optional<Tuple> {
-  UNIMPLEMENTED("not implemented");
+  if (base_meta.is_deleted_ && undo_logs.empty()) {
+    return {};
+  }
+  std::vector<Value> values;
+  for (size_t i = 0; i < schema->GetColumnCount(); ++i) {
+    values.emplace_back(base_tuple.GetValue(schema, i));
+  }
+  for (size_t p = 0; p < undo_logs.size(); ++p) {
+    const UndoLog &undo_log = undo_logs[p];
+    std::vector<uint32_t> modified_cols;
+    if (undo_log.is_deleted_) {
+      for (size_t i = 0; i < schema->GetColumnCount(); ++i) {
+        values[i] = ValueFactory::GetNullValueByType(values[i].GetTypeId());
+      }
+    }
+    if (undo_log.is_deleted_ && p == undo_logs.size() - 1) {
+      return {};
+    }
+    for (uint32_t i = 0; i < undo_log.modified_fields_.size(); ++i) {
+      if (undo_log.modified_fields_[i]) {
+        modified_cols.push_back(i);
+      }
+    }
+    Schema undo_schema = Schema::CopySchema(schema, modified_cols);
+    // reconstruct the tuple
+    for (uint32_t i = 0; i < modified_cols.size(); ++i) {
+      values[modified_cols[i]] = undo_log.tuple_.GetValue(&undo_schema, i);
+    }
+  }
+  Tuple res{values, schema};
+  return res;
 }
 
 void TxnMgrDbg(const std::string &info, TransactionManager *txn_mgr, const TableInfo *table_info,

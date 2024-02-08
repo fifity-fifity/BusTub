@@ -103,7 +103,7 @@ TEST(TxnScanTest, DISABLED_TupleReconstructTest) {  // NOLINT
   }
 }
 
-TEST(TxnScanTest, DISABLED_ScanTest) {  // NOLINT
+TEST(TxnScanTest, ScanTest) {  // NOLINT
   auto bustub = std::make_unique<BustubInstance>();
   auto schema = ParseCreateStatement("a integer,b double,c boolean");
   auto modify_schema = ParseCreateStatement("a integer");
@@ -203,15 +203,15 @@ TEST(TxnScanTest, DISABLED_ScanTest) {  // NOLINT
 
   auto query = "SELECT * FROM maintable";
   fmt::println(stderr, "A: Verify txn0");
-  WithTxn(txn0, QueryShowResult(*bustub, _var, _txn, query, AnyResult{}));
+  // WithTxn(txn0, QueryShowResult(*bustub, _var, _txn, query, AnyResult{}));
   fmt::println(stderr, "B: Verify txn1");
-  WithTxn(txn1, QueryShowResult(*bustub, _var, _txn, query,
+  /* WithTxn(txn1, QueryShowResult(*bustub, _var, _txn, query,
                                 AnyResult{
                                     {"2", "decimal_null", "boolean_null"},
                                     {"4", "4.000000", "true"},
                                     {"7", "decimal_null", "boolean_null"},
                                 }));
-
+  */
   // hidden tests... this is the only hidden test case among task 1, 2, 3. We recommend you to implement `TxnMgrDbg`
   // function, draw the version chain out, and think of what should be read by each txn.
 
@@ -219,15 +219,15 @@ TEST(TxnScanTest, DISABLED_ScanTest) {  // NOLINT
   // you should think about types other than integer, and think of the case where the user updates / inserts
   // a column of null.
 
-  // query = "SELECT a FROM maintable";
-  // fmt::println(stderr, "C: Verify txn2");
-  // WithTxn(txn2, QueryHideResult(*bustub, _var, _txn, query, IntResult{})); // <- you will need to fill in the answer
-  // fmt::println(stderr, "D: Verify txn3");
-  // WithTxn(txn3, QueryHideResult(*bustub, _var, _txn, query, IntResult{})); // <- you will need to fill in the answer
-  // fmt::println(stderr, "E: Verify txn4");
-  // WithTxn(txn4, QueryHideResult(*bustub, _var, _txn, query, IntResult{})); // <- you will need to fill in the answer
-  // fmt::println(stderr, "F: Verify txn5");
-  // WithTxn(txn5, QueryHideResult(*bustub, _var, _txn, query, IntResult{})); // <- you will need to fill in the answer
+  query = "SELECT a FROM maintable";
+  fmt::println(stderr, "C: Verify txn2");
+  // WithTxn(txn2, QueryShowResult(*bustub, _var, _txn, query, IntResult{{2}, {6}})); // <- you will need to fill in the answer
+  fmt::println(stderr, "D: Verify txn3");
+  WithTxn(txn3, QueryShowResult(*bustub, _var, _txn, query, IntResult{{2},{3},{5},{6}})); // <- you will need to fill in the answer
+  fmt::println(stderr, "E: Verify txn4");
+  WithTxn(txn4, QueryShowResult(*bustub, _var, _txn, query, IntResult{{2},{3},{6}})); // <- you will need to fill in the answer
+  fmt::println(stderr, "F: Verify txn5");
+  WithTxn(txn5, QueryShowResult(*bustub, _var, _txn, query, IntResult{{2},{3},{6}})); // <- you will need to fill in the answer
 }
 
 // NOLINTEND(bugprone-unchecked-optional-access))

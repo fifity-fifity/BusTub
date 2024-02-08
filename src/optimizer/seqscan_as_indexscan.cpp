@@ -19,7 +19,7 @@ auto Optimizer::OptimizeSeqScanAsIndexScan(const bustub::AbstractPlanNodeRef &pl
     const auto &seq_scan_plan = dynamic_cast<const SeqScanPlanNode &>(*optimized_plan);
     // std::cout<<"here filter_predicate is " << seq_scan_plan.filter_predicate_->ToString() << std::endl;
     if (seq_scan_plan.filter_predicate_ == nullptr) {
-      std::cout << "filter_predicate is nullptr" << std::endl;
+      // std::cout << "filter_predicate is nullptr" << std::endl;
       return optimized_plan;
     }
     if (seq_scan_plan.filter_predicate_->children_.size() < 2) {
