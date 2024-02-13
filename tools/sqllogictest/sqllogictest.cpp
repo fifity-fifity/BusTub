@@ -89,11 +89,13 @@ auto ProcessExtraOptions(const std::string &sql, bustub::BustubInstance &instanc
           return false;
         }
       } else if (opt == "ensure:hash_join_no_filter") {
-        if (bustub::StringUtil::Split(result.str(), "HashJoin").size() != 2 ||
+         if (bustub::StringUtil::Split(result.str(), "HashJoin").size() != 2 ||
             bustub::StringUtil::ContainsAfter("OPTIMIZER", result.str(), "Filter")) {
           fmt::print("Push all filters into HashJoin\n");
           return false;
         }
+         // std::cout << bustub::StringUtil::Split(result.str(), "HashJoin").size() << std::endl;
+         // std::cout << bustub::StringUtil::ContainsAfter("OPTIMIZER", result.str(), "Filter") << std::endl;
       } else if (opt == "ensure:hash_join*2") {
         if (bustub::StringUtil::Split(result.str(), "HashJoin").size() != 3 &&
             !bustub::StringUtil::Contains(result.str(), "Filter")) {

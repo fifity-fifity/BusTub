@@ -85,7 +85,7 @@ void BustubInstance::HandleCreateStatement(Transaction *txn, const CreateStateme
   }
 }
 
-void BustubInstance::HandleIndexStatement(Transaction *txn, const IndexStatement & stmt, ResultWriter &writer) {
+void BustubInstance::HandleIndexStatement(Transaction *txn, const IndexStatement &stmt, ResultWriter &writer) {
   std::vector<uint32_t> col_ids;
   for (const auto &col : stmt.cols_) {
     auto idx = stmt.table_->schema_.GetColIdx(col->col_name_.back());

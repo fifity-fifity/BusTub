@@ -14,6 +14,7 @@
 #include <cstdarg>
 #include <cstring>
 #include <iomanip>
+#include <iostream>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -184,6 +185,7 @@ auto StringUtil::Split(const std::string &input, const std::string &split) -> st
   size_t last = 0;
   size_t input_len = input.size();
   size_t split_len = split.size();
+  std::cout << "input is " << input << std::endl;
   while (last <= input_len) {
     size_t next = input.find(split, last);
     if (next == std::string::npos) {

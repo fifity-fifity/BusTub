@@ -38,9 +38,8 @@ void FillKeyExpressions(std::vector<AbstractExpressionRef> &left_key_expressions
 
 auto Optimizer::OptimizeNLJAsHashJoin(const AbstractPlanNodeRef &plan) -> AbstractPlanNodeRef {
   // TODO(student): implement NestedLoopJoin -> HashJoin optimizer rule
-  // Note for 2023 fall: You should at least support join keys of the form:
-  // 1. <column expr> = <column expr>
-  // 2. <column expr> = <column expr> AND <column expr> = <column expr>
+  // Note for 2023 Fall: You should support join keys of any number of conjunction of equi-condistions:
+  // E.g. <column expr> = <column expr> AND <column expr> = <column expr> AND ...
 
   std::vector<AbstractPlanNodeRef> children;
   for (auto &child : plan->GetChildren()) {
@@ -49,53 +48,43 @@ auto Optimizer::OptimizeNLJAsHashJoin(const AbstractPlanNodeRef &plan) -> Abstra
   auto optimized_plan = plan->CloneWithChildren(std::move(children));
   if (optimized_plan->GetType() == PlanType::NestedLoopJoin) {
     const auto &nlj_plan = dynamic_cast<const NestedLoopJoinPlanNode &>(*optimized_plan);
-    // Has exactly two children
     BUSTUB_ENSURE(nlj_plan.children_.size() == 2, "NLJ should have exactly 2 children.");
-    if (const auto *expr = dynamic_cast<const ComparisonExpression *>(nlj_plan.Predicate().get()); expr != nullptr) {
-      if (expr->comp_type_ == ComparisonType::Equal) {
-        if (const auto *left_expr = dynamic_cast<const ColumnValueExpression *>(expr->children_[0].get());
-            left_expr != nullptr) {
-          if (const auto *right_expr = dynamic_cast<const ColumnValueExpression *>(expr->children_[1].get());
-              right_expr != nullptr) {
-            std::vector<AbstractExpressionRef> left_key_expressions;
-            std::vector<AbstractExpressionRef> right_key_expressions;
+    std::vector<AbstractExpressionRef> left_key_expressions;
+    std::vector<AbstractExpressionRef> right_key_expressions;
+    auto tmp_predicate = nlj_plan.Predicate();
+    auto *tmp_expr = dynamic_cast<const LogicExpression *>(tmp_predicate.get());
+    while (tmp_expr != nullptr) {
+      // std::cout << "recusive " << std::endl;
+      if (tmp_expr->logic_type_ == LogicType::And) {
+        auto *equal_expr = dynamic_cast<ComparisonExpression *>(tmp_expr->children_[1].get());
+        if (equal_expr != nullptr && equal_expr->comp_type_ == ComparisonType::Equal) {
+          const auto *left_expr = dynamic_cast<const ColumnValueExpression *>(equal_expr->children_[0].get());
+          const auto *right_expr = dynamic_cast<const ColumnValueExpression *>(equal_expr->children_[1].get());
+          if (left_expr != nullptr && right_expr != nullptr) {
             FillKeyExpressions(left_key_expressions, right_key_expressions, left_expr, right_expr);
-            return std::make_shared<HashJoinPlanNode>(nlj_plan.output_schema_, nlj_plan.GetLeftPlan(),
-                                                      nlj_plan.GetRightPlan(), std::move(left_key_expressions),
-                                                      std::move(right_key_expressions), nlj_plan.GetJoinType());
           }
+        } else {
+          return optimized_plan;
         }
+        tmp_predicate = tmp_expr->children_[0];
+        tmp_expr = dynamic_cast<const LogicExpression *>(tmp_predicate.get());
+      } else {
+        return optimized_plan;
       }
     }
-    if (const auto *expr = dynamic_cast<const LogicExpression *>(nlj_plan.Predicate().get()); expr != nullptr) {
-      if (expr->logic_type_ == LogicType::And) {
-        if (auto *expr1 = dynamic_cast<ComparisonExpression *>(expr->children_[0].get()); expr1 != nullptr) {
-          if (auto *expr2 = dynamic_cast<ComparisonExpression *>(expr->children_[1].get()); expr2 != nullptr) {
-            if (expr1->comp_type_ == ComparisonType::Equal && expr2->comp_type_ == ComparisonType::Equal) {
-              std::vector<AbstractExpressionRef> left_key_expressions;
-              std::vector<AbstractExpressionRef> right_key_expressions;
-              if (const auto *left_expr = dynamic_cast<const ColumnValueExpression *>(expr1->children_[0].get());
-                  left_expr != nullptr) {
-                if (const auto *right_expr = dynamic_cast<const ColumnValueExpression *>(expr1->children_[1].get());
-                    right_expr != nullptr) {
-                  FillKeyExpressions(left_key_expressions, right_key_expressions, left_expr, right_expr);
-                }
-              }
-              if (const auto *left_expr = dynamic_cast<const ColumnValueExpression *>(expr2->children_[0].get());
-                  left_expr != nullptr) {
-                if (const auto *right_expr = dynamic_cast<const ColumnValueExpression *>(expr2->children_[1].get());
-                    right_expr != nullptr) {
-                  FillKeyExpressions(left_key_expressions, right_key_expressions, left_expr, right_expr);
-                }
-              }
-              return std::make_shared<HashJoinPlanNode>(nlj_plan.output_schema_, nlj_plan.GetLeftPlan(),
-                                                        nlj_plan.GetRightPlan(), std::move(left_key_expressions),
-                                                        std::move(right_key_expressions), nlj_plan.GetJoinType());
-            }
-          }
-        }
+    auto *equal_expr = dynamic_cast<ComparisonExpression *>(tmp_predicate.get());
+    if (equal_expr != nullptr && equal_expr->comp_type_ == ComparisonType::Equal) {
+      const auto *left_expr = dynamic_cast<const ColumnValueExpression *>(equal_expr->children_[0].get());
+      const auto *right_expr = dynamic_cast<const ColumnValueExpression *>(equal_expr->children_[1].get());
+      if (left_expr != nullptr && right_expr != nullptr) {
+        FillKeyExpressions(left_key_expressions, right_key_expressions, left_expr, right_expr);
       }
+      return std::make_shared<HashJoinPlanNode>(nlj_plan.output_schema_, nlj_plan.GetLeftPlan(),
+                                                nlj_plan.GetRightPlan(), std::move(left_key_expressions),
+                                                std::move(right_key_expressions), nlj_plan.GetJoinType());
     }
+    // std::cout << "this is for test" << std::endl;
+    // std::cout << nlj_plan.predicate_->ToString()<<std::endl;
   }
   return optimized_plan;
 }

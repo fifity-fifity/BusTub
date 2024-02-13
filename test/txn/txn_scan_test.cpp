@@ -5,7 +5,7 @@ namespace bustub {
 
 // NOLINTBEGIN(bugprone-unchecked-optional-access)
 
-TEST(TxnScanTest, DISABLED_TupleReconstructTest) {  // NOLINT
+TEST(TxnScanTest, TupleReconstructTest) {  // NOLINT
   auto schema = ParseCreateStatement("a integer,b double,c boolean");
   {
     fmt::println(stderr, "A: only base tuple");
@@ -221,13 +221,17 @@ TEST(TxnScanTest, ScanTest) {  // NOLINT
 
   query = "SELECT a FROM maintable";
   fmt::println(stderr, "C: Verify txn2");
-  // WithTxn(txn2, QueryShowResult(*bustub, _var, _txn, query, IntResult{{2}, {6}})); // <- you will need to fill in the answer
+  WithTxn(txn2,
+          QueryShowResult(*bustub, _var, _txn, query, IntResult{{2}, {6}}));  // <- you will need to fill in the answer
   fmt::println(stderr, "D: Verify txn3");
-  WithTxn(txn3, QueryShowResult(*bustub, _var, _txn, query, IntResult{{2},{3},{5},{6}})); // <- you will need to fill in the answer
+  WithTxn(txn3, QueryShowResult(*bustub, _var, _txn, query,
+                                IntResult{{2}, {3}, {5}}));  // <- you will need to fill in the answer
   fmt::println(stderr, "E: Verify txn4");
-  WithTxn(txn4, QueryShowResult(*bustub, _var, _txn, query, IntResult{{2},{3},{6}})); // <- you will need to fill in the answer
+  WithTxn(txn4, QueryShowResult(*bustub, _var, _txn, query,
+                                IntResult{{1}, {3}, {6}}));  // <- you will need to fill in the answer
   fmt::println(stderr, "F: Verify txn5");
-  WithTxn(txn5, QueryShowResult(*bustub, _var, _txn, query, IntResult{{2},{3},{6}})); // <- you will need to fill in the answer
+  WithTxn(txn5, QueryShowResult(*bustub, _var, _txn, query,
+                                IntResult{{2}, {3}, {6}}));  // <- you will need to fill in the answer
 }
 
 // NOLINTEND(bugprone-unchecked-optional-access))
