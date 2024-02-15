@@ -54,11 +54,12 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
       }
     }
     *tuple = Tuple(values, &GetOutputSchema());
+    std::cout << "data is " << tuple->GetData() << std::endl;
     finished_ = true;
     return true;
   }
   if (aht_iterator_ == aht_.End()) {
-    std::cout << "aht_iterator == aht.End()" << std::endl;
+    //  std::cout << "aht_iterator == aht.End()" << std::endl;
     return false;
   }
   std::vector<Value> values(aht_iterator_.Key().group_bys_);
@@ -67,7 +68,7 @@ auto AggregationExecutor::Next(Tuple *tuple, RID *rid) -> bool {
   }
   *tuple = Tuple(values, &GetOutputSchema());
   ++aht_iterator_;
-  std::cout << "Next() success, values size is " << values.size() << std::endl;
+  // std::cout << "Next() success, values size is " << values.size() << std::endl;
   return true;
 }
 
