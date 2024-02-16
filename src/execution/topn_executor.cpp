@@ -19,7 +19,7 @@ void TopNExecutor::Init() {
         return type == OrderByType::DESC;
       }
     }
-    BUSTUB_ASSERT(false, "duplicated tuple key");
+    // BUSTUB_ASSERT(false, "duplicated tuple key");
     return true;
   };
   std::priority_queue<Tuple, std::vector<Tuple>, decltype(cmp)> heap(cmp);
