@@ -1,3 +1,4 @@
+
 //===----------------------------------------------------------------------===//
 //
 //                         BusTub
@@ -12,6 +13,7 @@
 
 #include "storage/disk/disk_scheduler.h"
 #include "common/exception.h"
+#include "readerwriterqueue/readerwriterqueue.h"
 #include "storage/disk/disk_manager.h"
 
 namespace bustub {
@@ -36,16 +38,17 @@ DiskScheduler::~DiskScheduler() {
 
 void DiskScheduler::Schedule(DiskRequest r) { request_queue_.Put(std::move(r)); }
 
-void DiskScheduler::Work(std::thread th) { th.join(); }
+[[maybe_unused]] void DiskScheduler::Work(std::thread th) { th.join(); }
 
 void DiskScheduler::StartWorkerThread() {
   while (true) {
+    // std::cout << "yes" << std::endl;
     auto task = request_queue_.Get();
     if (!task.has_value()) {
       break;
     }
     // Launch a thread to perform the disk operation
-    std::thread th([&, task = std::move(task)]() mutable {
+    /*std::thread th([&, task = std::move(task)]() mutable {
       if (task->is_write_) {
         disk_manager_->WritePage(task->page_id_, task->data_);
       } else {
@@ -53,9 +56,21 @@ void DiskScheduler::StartWorkerThread() {
       }
       // Set the promise value once the disk operation is complete
       task->callback_.set_value(true);
-    });
-    Work(std::move(th));
+    });*/
+    // q_.enqueue(std::move(th));
+    page_id_t frame_id = task->frame_id_;
+    if (mp_.find(frame_id) == mp_.end()) {
+      mp_[frame_id] = std::make_unique<PageThread>(disk_manager_);
+    }
+    mp_[frame_id]->q_.Put(std::move(task));
+    // Work(std::move(th));
   }
+  for (auto &pair : mp_) {
+    pair.second->stop_ = true;
+    pair.second->q_.Put(std::nullopt);
+  }
+  std::cout << "No"
+            << ",thread map szie is " << mp_.size() << std::endl;
 }
 
 }  // namespace bustub

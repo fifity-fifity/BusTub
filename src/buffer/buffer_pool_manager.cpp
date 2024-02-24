@@ -20,21 +20,25 @@ namespace bustub {
 
 BufferPoolManager::BufferPoolManager(size_t pool_size, DiskManager *disk_manager, size_t replacer_k,
                                      LogManager *log_manager)
-    : pool_size_(pool_size), disk_scheduler_(std::make_unique<DiskScheduler>(disk_manager)), log_manager_(log_manager) {
+    : pool_size_(pool_size),
+      disk_scheduler_(std::make_unique<DiskScheduler>(disk_manager)),
+      log_manager_(log_manager),
+      f_latch_(pool_size) {
   // we allocate a consecutive memory space for the buffer pool
   pages_ = new Page[pool_size_];
   replacer_ = std::make_unique<LRUKReplacer>(pool_size, replacer_k);
 
   // Initially, every page is in the free list.
   for (size_t i = 0; i < pool_size_; ++i) {
-    free_list_.emplace_back(static_cast<int>(i));
+    free_list_.emplace_back(i);
+    // cv_.notify_one();
   }
 }
 
 BufferPoolManager::~BufferPoolManager() { delete[] pages_; }
 
 auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
-  std::unique_lock lk(latch_);
+  std::unique_lock lock(latch_);
   frame_id_t free_id;
   if (!free_list_.empty()) {
     free_id = free_list_.back();
@@ -42,11 +46,26 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
   } else if (!(*replacer_).Evict(&free_id)) {
     return nullptr;
   }
+  /*
+  auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(1);
+  if (cv_.wait_until(lock, timeout, [&] { return !free_list_.empty() || (*replacer_).Evict(&free_id); })) {
+    if (!free_list_.empty()) {
+      free_id = free_list_.back();
+      free_list_.pop_back();
+    }
+  } else {
+    return nullptr;
+  } */
+
   *page_id = AllocatePage();
+  std::unique_lock p_lock(latch_mp_[*page_id]);
+  // std::unique_lock p_lock(f_latch_[free_id]);
+  // lock.unlock();
   if (pages_[free_id].is_dirty_) {
     auto promise = disk_scheduler_->CreatePromise();
     auto future = promise.get_future();
-    disk_scheduler_->Schedule({true, pages_[free_id].GetData(), pages_[free_id].GetPageId(), std::move(promise)});
+    disk_scheduler_->Schedule(
+        {true, pages_[free_id].GetData(), pages_[free_id].GetPageId(), std::move(promise), free_id});
     future.get();
   }
   page_table_.erase(pages_[free_id].page_id_);
@@ -63,7 +82,10 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
 }
 
 auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType access_type) -> Page * {
-  std::unique_lock lk(latch_);
+  std::unique_lock lock(latch_);
+  // std::unique_lock lk(mtx_);
+  std::unique_lock p_lock1(latch_mp_[page_id]);
+  // std::cout << "FetchPage " << page_id << std::endl;
   if (page_table_.find(page_id) != page_table_.end()) {
     pages_[page_table_[page_id]].pin_count_++;
     replacer_->RecordAccess(page_table_[page_id]);
@@ -77,29 +99,52 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
   } else if (!(*replacer_).Evict(&free_id)) {
     return nullptr;
   }
+  /*
+  auto timeout = std::chrono::system_clock::now() + std::chrono::milliseconds(1);
+  if (cv_.wait_until(lock, timeout, [&] { return !free_list_.empty() || (*replacer_).Evict(&free_id); })) {
+    if (!free_list_.empty()) {
+      free_id = free_list_.back();
+      free_list_.pop_back();
+    }
+  } else {
+    return nullptr;
+  } */
+  std::unique_lock f_lock(f_latch_[free_id]);
+  std::unique_lock p_lock(latch_mp_[pages_[free_id].page_id_]);
+
+  page_table_.erase(pages_[free_id].page_id_);
+  page_table_[page_id] = (free_id);
+  (*replacer_).RecordAccess(free_id);
+  (*replacer_).SetEvictable(free_id, false);
+  lock.unlock();
+  // lk.unlock();
   if (pages_[free_id].is_dirty_) {
     auto promise = disk_scheduler_->CreatePromise();
     auto future = promise.get_future();
-    disk_scheduler_->Schedule({true, pages_[free_id].GetData(), pages_[free_id].GetPageId(), std::move(promise)});
+    disk_scheduler_->Schedule(
+        {true, pages_[free_id].GetData(), pages_[free_id].GetPageId(), std::move(promise), free_id});
     future.get();
   }
-  page_table_.erase(pages_[free_id].page_id_);
-  page_table_[page_id] = (free_id);
+  // lock.unlock();
   pages_[free_id].ResetMemory();
   pages_[free_id].page_id_ = page_id;
   pages_[free_id].is_dirty_ = false;
   pages_[free_id].pin_count_ = 1;
   auto promise = disk_scheduler_->CreatePromise();
   auto future = promise.get_future();
-  disk_scheduler_->Schedule({false, pages_[free_id].GetData(), pages_[free_id].GetPageId(), std::move(promise)});
+  disk_scheduler_->Schedule(
+      {false, pages_[free_id].GetData(), pages_[free_id].GetPageId(), std::move(promise), free_id});
   future.get();
-  (*replacer_).RecordAccess(free_id);
-  (*replacer_).SetEvictable(free_id, false);
   return &pages_[free_id];
 }
 
 auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unused]] AccessType access_type) -> bool {
-  std::unique_lock lk(latch_);
+  std::unique_lock lock(latch_);
+  // std::cout << "UnpinPage " << page_id << std::endl;
+  page_id_t frame_id = page_table_[page_id];
+  std::unique_lock f_lock(f_latch_[frame_id]);
+  std::unique_lock p_lock(latch_mp_[page_id]);
+  // lock.unlock();
   if (page_table_.find(page_id) == page_table_.end()) {
     return false;
   }
@@ -117,39 +162,56 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unus
 }
 
 auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
-  std::unique_lock lk(latch_);
   if (page_id == INVALID_PAGE_ID) {
     return false;
   }
+  std::unique_lock lock(latch_);
   if (page_table_.find(page_id) == page_table_.end()) {
     return false;
   }
+  page_id_t frame_id = page_table_[page_id];
+  std::unique_lock f_lock(f_latch_[frame_id]);
+  std::unique_lock p_lock(latch_mp_[page_id]);
+  // lock.unlock();
   auto promise = disk_scheduler_->CreatePromise();
   auto future = promise.get_future();
-  disk_scheduler_->Schedule({true, pages_[page_table_[page_id]].data_, page_id, std::move(promise)});
+  disk_scheduler_->Schedule({true, pages_[page_table_[page_id]].data_, page_id, std::move(promise), frame_id});
   future.get();
   pages_[page_table_[page_id]].is_dirty_ = false;
   return true;
 }
 
 void BufferPoolManager::FlushAllPages() {
-  std::unique_lock lk(latch_);
+  std::unique_lock lock(latch_);
+  int mx = next_page_id_.load();
+  std::unique_lock<std::mutex> f_locks[pool_size_];
+  for (size_t i = 0; i < static_cast<size_t>(pool_size_); ++i) {
+    f_locks[i] = std::unique_lock(f_latch_[i]);
+  }
+  std::unique_lock<std::mutex> p_locks[mx];
+  for (size_t i = 0; i < static_cast<size_t>(mx); ++i) {
+    p_locks[i] = std::unique_lock(latch_mp_[i]);
+  }
   for (auto &[page_id, frame_id] : page_table_) {
     auto promise = disk_scheduler_->CreatePromise();
     auto future = promise.get_future();
-    disk_scheduler_->Schedule(
-        {true, pages_[page_table_[page_id]].data_, pages_[page_table_[page_id]].GetPageId(), std::move(promise)});
+    disk_scheduler_->Schedule({true, pages_[page_table_[page_id]].data_, pages_[page_table_[page_id]].GetPageId(),
+                               std::move(promise), frame_id});
     future.get();
     pages_[page_table_[page_id]].is_dirty_ = false;
   }
 }
 
 auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
-  std::unique_lock lk(latch_);
+  std::unique_lock lock(latch_);
   if (page_table_.find(page_id) == page_table_.end()) {
     return true;
   }
   auto id = page_table_[page_id];
+  page_id_t frame_id = id;
+  std::unique_lock f_lock(f_latch_[frame_id]);
+  std::unique_lock p_lock(latch_mp_[page_id]);
+  // lock.unlock();
   auto &page = pages_[id];
   if (page.GetPinCount() > 0) {
     return false;
@@ -157,8 +219,8 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
   if (page.IsDirty()) {
     auto promise = disk_scheduler_->CreatePromise();
     auto future = promise.get_future();
-    disk_scheduler_->Schedule(
-        {true, pages_[page_table_[page_id]].data_, pages_[page_table_[page_id]].GetPageId(), std::move(promise)});
+    disk_scheduler_->Schedule({true, pages_[page_table_[page_id]].data_, pages_[page_table_[page_id]].GetPageId(),
+                               std::move(promise), frame_id});
     future.get();
   }
   page.ResetMemory();
@@ -166,7 +228,7 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
   page_table_.erase(page_id);
   replacer_->Remove(id);
   free_list_.push_back(id);
-
+  cv_.notify_one();
   return true;
 }
 

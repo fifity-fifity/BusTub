@@ -159,7 +159,7 @@ auto main(int argc, char **argv) -> int {
     return 1;
   }
 
-  uint64_t duration_ms = 30000;
+  uint64_t duration_ms = 15000;
   if (program.present("--duration")) {
     duration_ms = std::stoi(program.get("--duration"));
   }
@@ -210,8 +210,10 @@ auto main(int argc, char **argv) -> int {
       throw std::runtime_error("new page failed");
     }
 
-    ModifyPage(page->GetData(), i, 0);
-
+    ModifyPage(page->GetData(), i, 0); //修改page数据
+    /*if (i % 100 == 0) {
+      std::cout << i << std::endl;
+    }*/
     bpm->UnpinPage(page_id, true);
     page_ids.push_back(page_id);
   }
@@ -239,11 +241,13 @@ auto main(int argc, char **argv) -> int {
       size_t page_idx = page_idx_start;
 
       while (!metrics.ShouldFinish()) {
+        // std::cout << "sacn page " << page_idx << std::endl;
         auto *page = bpm->FetchPage(page_ids[page_idx], AccessType::Scan);
         if (page == nullptr) {
+          // std::cout << "why nullptr" << std::endl;
           continue;
         }
-
+        // std::cout << "scan" << std::endl;
         page->WLatch();
         auto &seed = records[page_idx];
         CheckPageConsistent(page->GetData(), page_idx, seed);
@@ -274,13 +278,14 @@ auto main(int argc, char **argv) -> int {
       metrics.Begin();
 
       while (!metrics.ShouldFinish()) {
+        // std::cout << "get" << std::endl;
         auto page_idx = dist(gen);
         auto *page = bpm->FetchPage(page_ids[page_idx], AccessType::Lookup);
         if (page == nullptr) {
           fmt::println(stderr, "cannot fetch page");
           std::terminate();
         }
-
+        // std::cout << "get page" << page_idx << std::endl;
         page->RLatch();
         CheckPageConsistentNoSeed(page->GetData(), page_idx);
         page->RUnlatch();
@@ -289,11 +294,9 @@ auto main(int argc, char **argv) -> int {
         metrics.Tick();
         metrics.Report();
       }
-
       total_metrics.ReportGet(metrics.cnt_);
     });
   }
-
   for (auto &thread : threads) {
     thread.join();
   }

@@ -12,6 +12,7 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <limits>
 #include <list>
 #include <mutex>  // NOLINT
@@ -20,6 +21,7 @@
 
 #include "common/config.h"
 #include "common/macros.h"
+#include "readerwriterqueue/readerwriterqueue.h"
 
 namespace bustub {
 
@@ -155,7 +157,15 @@ class LRUKReplacer {
   size_t curr_size_{0};
   size_t replacer_size_;
   size_t k_;
-  std::mutex latch_;
+  std::vector<std::mutex> latch_;
+  std::mutex mutex_;
+  std::condition_variable cv_;
+
+  std::list<frame_id_t> evict_k_;
+  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> evict_k_mp_;
+  std::list<frame_id_t> evict_;
+  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> evict_mp_;
+  [[maybe_unused]] moodycamel::ReaderWriterQueue<frame_id_t> free_queue_;
 };
 
 }  // namespace bustub

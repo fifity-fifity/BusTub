@@ -13,10 +13,14 @@
 #pragma once
 
 #include <future>  // NOLINT
+#include <iostream>
 #include <optional>
+#include <queue>
 #include <thread>  // NOLINT
+#include <unordered_map>
 
 #include "common/channel.h"
+#include "readerwriterqueue/readerwriterqueue.h"
 #include "storage/disk/disk_manager.h"
 
 namespace bustub {
@@ -40,6 +44,44 @@ struct DiskRequest {
 
   /** Callback used to signal to the request issuer when the request has been completed. */
   std::promise<bool> callback_;
+
+  page_id_t frame_id_{0};
+};
+
+struct PageThread {
+  Channel<std::optional<DiskRequest>> q_;
+  DiskManager *disk_manager_;
+  std::thread th_;
+  std::mutex mutex_;
+  std::condition_variable cv_;
+  bool stop_ = false;
+
+  explicit PageThread(DiskManager *disk_manager) : disk_manager_(disk_manager) {
+    th_ = std::thread([this] {
+      while (!stop_) {
+        // std::cout << "get task" << std::endl;
+        auto task = q_.Get();
+        if (task == std::nullopt) {
+          return;
+        }
+        // std::cout << "geted task" << std::endl;
+        if (task->is_write_) {
+          disk_manager_->WritePage(task->page_id_, task->data_);
+        } else {
+          disk_manager_->ReadPage(task->page_id_, task->data_);
+        }
+        // Set the promise value once the disk operation is complete
+        task->callback_.set_value(true);
+      }
+      // std::cout << "over" << std::endl;
+    });
+  }
+
+  ~PageThread() {
+    stop_ = true;
+    th_.join();
+    // std::cout << "thread is over" << std::endl;
+  }
 };
 
 /**
@@ -73,7 +115,7 @@ class DiskScheduler {
    */
   void StartWorkerThread();
 
-  void Work(std::thread th);
+  [[maybe_unused]] void Work(std::thread th);
 
   using DiskSchedulerPromise = std::promise<bool>;
 
@@ -93,5 +135,9 @@ class DiskScheduler {
   Channel<std::optional<DiskRequest>> request_queue_;
   /** The background thread responsible for issuing scheduled requests to the disk manager. */
   std::optional<std::thread> background_thread_;
+  // moodycamel::ReaderWriterQueue<std::function<void()>> q_;
+
+  std::unordered_map<page_id_t, std::unique_ptr<PageThread>> mp_;
 };
+
 }  // namespace bustub
