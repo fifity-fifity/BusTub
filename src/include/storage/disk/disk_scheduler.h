@@ -48,6 +48,57 @@ struct DiskRequest {
   page_id_t frame_id_{0};
 };
 
+class ThreadPool {
+ public:
+  explicit ThreadPool(DiskManager *disk_manager, size_t pool_size)
+      : disk_manager_(disk_manager), pool_size_(pool_size) {
+    for (size_t i = 0; i < pool_size_; ++i) {
+      workers_.emplace_back([this] {
+        while (true) {
+          /*if (!stop_ || task_q_.size_approx() > 0) {
+            return ;
+          }
+          std::optional<DiskRequest> task;
+          if (task_q_.try_dequeue(task)) {
+            if (task->is_write_) {
+              disk_manager_->WritePage(task->page_id_, task->data_);
+            } else {
+              disk_manager_->ReadPage(task->page_id_, task->data_);
+            }
+            // Set the promise value once the disk operation is complete
+            task->callback_.set_value(true);
+          }*/
+          auto task = task_q_.Get();
+          if (task == std::nullopt) {
+            return;
+          }
+          // std::cout << "geted task" << std::endl;
+          if (task->is_write_) {
+            disk_manager_->WritePage(task->page_id_, task->data_);
+          } else {
+            disk_manager_->ReadPage(task->page_id_, task->data_);
+          }
+          // Set the promise value once the disk operation is complete
+          task->callback_.set_value(true);
+        }
+      });
+    }
+  }
+  ~ThreadPool() {
+    stop_ = true;
+    for (auto &worker : workers_) {
+      worker.join();
+    }
+  }
+
+  // moodycamel::ReaderWriterQueue<std::optional<DiskRequest>> task_q_;
+  Channel<std::optional<DiskRequest>> task_q_;
+  DiskManager *disk_manager_;
+  std::vector<std::thread> workers_;
+  size_t pool_size_{8};
+  bool stop_{false};
+};
+
 struct PageThread {
   Channel<std::optional<DiskRequest>> q_;
   DiskManager *disk_manager_;

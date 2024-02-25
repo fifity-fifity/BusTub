@@ -20,12 +20,13 @@ LRUKReplacer::LRUKReplacer(size_t num_frames, uint64_t k)
 
 auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
   std::unique_lock lock(mutex_);
+  count_++;
   if (curr_size_ == 0) {
     return false;
   }
-  if (!evict_.empty()) {
-    for (auto &i : evict_) {
-      // std::cout << i << std::endl;
+  if (!cold_list_.empty()) {
+    for (auto &i : cold_list_) {
+      coun_t_++;
       auto &node = node_store_[i];
       if (node.is_evictable_ && node.fid_ != INVALID_TXN_ID) {
         *frame_id = i;
@@ -34,14 +35,32 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
         node_store_[*frame_id].k_ = 0;
         node_store_[*frame_id].is_evictable_ = false;
         curr_size_--;
-        evict_.erase(evict_mp_[*frame_id]);
-        evict_mp_.erase(*frame_id);
+        cold_list_.erase(cold_mp_[*frame_id]);
+        cold_mp_.erase(*frame_id);
+        return true;
+      }
+    }
+  }
+  if (!warm_list_.empty()) {
+    for (auto &i : warm_list_) {
+      coun_t_++;
+      auto &lru_node = node_store_[i];
+      if (lru_node.is_evictable_ && lru_node.fid_ != INVALID_TXN_ID) {
+        *frame_id = i;
+        node_store_[*frame_id].history_.clear();
+        node_store_[*frame_id].fid_ = INVALID_TXN_ID;
+        node_store_[*frame_id].k_ = 0;
+        node_store_[*frame_id].is_evictable_ = false;
+        warm_list_.erase(warm_mp_[*frame_id]);
+        warm_mp_.erase(*frame_id);
+        curr_size_--;
         return true;
       }
     }
   }
   uint64_t time_k = std::numeric_limits<uint64_t>::max();
-  for (auto &i : evict_k_) {
+  for (auto &i : hot_list_) {
+    coun_t_++;
     auto &node = node_store_[i];
     if (node.is_evictable_ && node.fid_ != INVALID_TXN_ID) {
       if (time_k > node.history_.front()) {
@@ -55,8 +74,11 @@ auto LRUKReplacer::Evict(frame_id_t *frame_id) -> bool {
     node_store_[*frame_id].fid_ = INVALID_TXN_ID;
     node_store_[*frame_id].k_ = 0;
     node_store_[*frame_id].is_evictable_ = false;
+    hot_list_.erase(hot_mp_[*frame_id]);
+    hot_mp_.erase(*frame_id);
     curr_size_--;
   }
+  std::cout << "tmie_k " << time_k << '\n';
   return (time_k != std::numeric_limits<uint64_t>::max());
 }
 
@@ -65,6 +87,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
     BUSTUB_ASSERT(true, "RecordAccess error");
   }
   std::unique_lock lock(mutex_);
+  // std::cout << cold_list.size() + warm_list_.size() + hot_list_.size() << std::endl;
   current_timestamp_++;
   if (node_store_[frame_id].fid_ != INVALID_TXN_ID) {
     node_store_[frame_id].history_.push_back(current_timestamp_);
@@ -72,28 +95,34 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
     if (node_store_[frame_id].k_ > k_) {
       node_store_[frame_id].history_.pop_front();
     } else if (node_store_[frame_id].k_ == k_) {
-      evict_.erase(evict_mp_[frame_id]);
-      evict_mp_.erase(frame_id);
-      evict_k_.push_back(frame_id);
-      evict_k_mp_[frame_id] = std::prev(evict_k_.end());
-    } else if (AccessType::Scan == access_type || AccessType::Lookup == access_type) {
-      if (evict_mp_.find(frame_id) != evict_mp_.end()) {
-        evict_.erase(evict_mp_[frame_id]);
-        // evict_mp_.erase(frame_id);
-
-        evict_.push_front(frame_id);
-        evict_mp_[frame_id] = evict_.begin();
+      if (cold_mp_.find(frame_id) != cold_mp_.end()) {
+        cold_list_.erase(cold_mp_[frame_id]);
+        cold_mp_.erase(frame_id);
+      } else {
+        warm_list_.erase(warm_mp_[frame_id]);
+        warm_mp_.erase(frame_id);
       }
-      // free_queue_.try_enqueue(frame_id);
+      hot_list_.push_back(frame_id);
+      hot_mp_[frame_id] = std::prev(hot_list_.end());
+    } else if (AccessType::Unknown != access_type && AccessType::Scan != access_type) {
+      if (cold_mp_.find(frame_id) != cold_mp_.end()) {
+        cold_list_.erase(cold_mp_[frame_id]);
+        cold_mp_.erase(frame_id);
+        warm_list_.push_front(frame_id);
+        warm_mp_[frame_id] = warm_list_.begin();
+      }
     }
   } else {
-    if (AccessType::Scan == access_type || AccessType::Lookup == access_type) {
-      evict_.push_front(frame_id);
-      evict_mp_[frame_id] = evict_.begin();
+    if (AccessType::Unknown == access_type) {
+      cold_list_.push_back(frame_id);
+      cold_mp_[frame_id] = std::prev(cold_list_.end());
+    } else if (AccessType::Scan == access_type) {
+      cold_list_.push_front(frame_id);
+      cold_mp_[frame_id] = cold_list_.begin();
       // free_queue_.try_enqueue(frame_id);
     } else {
-      evict_.push_back(frame_id);
-      evict_mp_[frame_id] = std::prev(evict_.end());
+      warm_list_.push_back(frame_id);
+      warm_mp_[frame_id] = std::prev(warm_list_.end());
     }
     node_store_[frame_id].fid_ = frame_id;
     node_store_[frame_id].k_ = 1;
@@ -101,7 +130,7 @@ void LRUKReplacer::RecordAccess(frame_id_t frame_id, [[maybe_unused]] AccessType
   }
 }
 
-void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
+void bustub::LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
   if (frame_id > static_cast<frame_id_t>(replacer_size_)) {
     std::abort();
   }
@@ -117,7 +146,7 @@ void LRUKReplacer::SetEvictable(frame_id_t frame_id, bool set_evictable) {
   node_store_[frame_id].is_evictable_ = set_evictable;
 }
 
-void LRUKReplacer::Remove(frame_id_t frame_id) {
+void bustub::LRUKReplacer::Remove(frame_id_t frame_id) {
   if (frame_id > static_cast<frame_id_t>(replacer_size_)) {
     return;
   }
@@ -136,7 +165,7 @@ void LRUKReplacer::Remove(frame_id_t frame_id) {
   }
 }
 
-auto LRUKReplacer::Size() -> size_t {
+auto bustub::LRUKReplacer::Size() -> size_t {
   std::unique_lock lock(mutex_);
   return curr_size_;
 }

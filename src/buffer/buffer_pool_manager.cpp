@@ -58,7 +58,7 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
   } */
 
   *page_id = AllocatePage();
-  std::unique_lock p_lock(latch_mp_[*page_id]);
+  // std::unique_lock p_lock(latch_mp_[*page_id]);
   // std::unique_lock p_lock(f_latch_[free_id]);
   // lock.unlock();
   if (pages_[free_id].is_dirty_) {
@@ -84,11 +84,13 @@ auto BufferPoolManager::NewPage(page_id_t *page_id) -> Page * {
 auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType access_type) -> Page * {
   std::unique_lock lock(latch_);
   // std::unique_lock lk(mtx_);
-  std::unique_lock p_lock1(latch_mp_[page_id]);
+  // std::unique_lock lk(mtx_);
+  // std::unique_lock p_lock1(latch_mp_[page_id]);
   // std::cout << "FetchPage " << page_id << std::endl;
   if (page_table_.find(page_id) != page_table_.end()) {
+    std::unique_lock f_lock(f_latch_[page_table_[page_id]]);
     pages_[page_table_[page_id]].pin_count_++;
-    replacer_->RecordAccess(page_table_[page_id]);
+    replacer_->RecordAccess(page_table_[page_id], access_type);
     replacer_->SetEvictable(page_table_[page_id], false);
     return &pages_[page_table_[page_id]];
   }
@@ -110,11 +112,11 @@ auto BufferPoolManager::FetchPage(page_id_t page_id, [[maybe_unused]] AccessType
     return nullptr;
   } */
   std::unique_lock f_lock(f_latch_[free_id]);
-  std::unique_lock p_lock(latch_mp_[pages_[free_id].page_id_]);
+  // std::unique_lock p_lock(latch_mp_[pages_[free_id].page_id_]);
 
   page_table_.erase(pages_[free_id].page_id_);
   page_table_[page_id] = (free_id);
-  (*replacer_).RecordAccess(free_id);
+  (*replacer_).RecordAccess(free_id, access_type);
   (*replacer_).SetEvictable(free_id, false);
   lock.unlock();
   // lk.unlock();
@@ -143,7 +145,7 @@ auto BufferPoolManager::UnpinPage(page_id_t page_id, bool is_dirty, [[maybe_unus
   // std::cout << "UnpinPage " << page_id << std::endl;
   page_id_t frame_id = page_table_[page_id];
   std::unique_lock f_lock(f_latch_[frame_id]);
-  std::unique_lock p_lock(latch_mp_[page_id]);
+  // std::unique_lock p_lock(latch_mp_[page_id]);
   // lock.unlock();
   if (page_table_.find(page_id) == page_table_.end()) {
     return false;
@@ -171,28 +173,30 @@ auto BufferPoolManager::FlushPage(page_id_t page_id) -> bool {
   }
   page_id_t frame_id = page_table_[page_id];
   std::unique_lock f_lock(f_latch_[frame_id]);
-  std::unique_lock p_lock(latch_mp_[page_id]);
-  // lock.unlock();
+  // std::unique_lock p_lock(latch_mp_[page_id]);
+  pages_[page_table_[page_id]].is_dirty_ = false;
+  lock.unlock();
   auto promise = disk_scheduler_->CreatePromise();
   auto future = promise.get_future();
   disk_scheduler_->Schedule({true, pages_[page_table_[page_id]].data_, page_id, std::move(promise), frame_id});
   future.get();
-  pages_[page_table_[page_id]].is_dirty_ = false;
   return true;
 }
 
 void BufferPoolManager::FlushAllPages() {
   std::unique_lock lock(latch_);
-  int mx = next_page_id_.load();
-  std::unique_lock<std::mutex> f_locks[pool_size_];
+
+  /*std::unique_lock<std::mutex> f_locks[pool_size_];
   for (size_t i = 0; i < static_cast<size_t>(pool_size_); ++i) {
     f_locks[i] = std::unique_lock(f_latch_[i]);
-  }
+  }*/
+  /*int mx = next_page_id_.load();
   std::unique_lock<std::mutex> p_locks[mx];
   for (size_t i = 0; i < static_cast<size_t>(mx); ++i) {
     p_locks[i] = std::unique_lock(latch_mp_[i]);
-  }
+  }*/
   for (auto &[page_id, frame_id] : page_table_) {
+    std::unique_lock f_lock(f_latch_[frame_id]);
     auto promise = disk_scheduler_->CreatePromise();
     auto future = promise.get_future();
     disk_scheduler_->Schedule({true, pages_[page_table_[page_id]].data_, pages_[page_table_[page_id]].GetPageId(),
@@ -210,7 +214,7 @@ auto BufferPoolManager::DeletePage(page_id_t page_id) -> bool {
   auto id = page_table_[page_id];
   page_id_t frame_id = id;
   std::unique_lock f_lock(f_latch_[frame_id]);
-  std::unique_lock p_lock(latch_mp_[page_id]);
+  // std::unique_lock p_lock(latch_mp_[page_id]);
   // lock.unlock();
   auto &page = pages_[id];
   if (page.GetPinCount() > 0) {

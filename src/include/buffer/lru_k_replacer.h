@@ -13,6 +13,7 @@
 #pragma once
 
 #include <condition_variable>
+#include <iostream>
 #include <limits>
 #include <list>
 #include <mutex>  // NOLINT
@@ -67,7 +68,7 @@ class LRUKReplacer {
    *
    * @brief Destroys the LRUReplacer.
    */
-  ~LRUKReplacer() = default;
+  ~LRUKReplacer() { std::cout << count_ << " " << coun_t_ << std::endl; };
 
   /**
    * TODO(P1): Add implementation
@@ -161,11 +162,16 @@ class LRUKReplacer {
   std::mutex mutex_;
   std::condition_variable cv_;
 
-  std::list<frame_id_t> evict_k_;
-  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> evict_k_mp_;
-  std::list<frame_id_t> evict_;
-  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> evict_mp_;
+  std::list<frame_id_t> hot_list_;
+  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> hot_mp_;
+  std::list<frame_id_t> warm_list_;
+  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> warm_mp_;
+  std::list<frame_id_t> cold_list_;
+  std::unordered_map<frame_id_t, std::list<frame_id_t>::iterator> cold_mp_;
+
   [[maybe_unused]] moodycamel::ReaderWriterQueue<frame_id_t> free_queue_;
+  [[maybe_unused]] size_t count_{0};
+  [[maybe_unused]] size_t coun_t_{0};
 };
 
 }  // namespace bustub

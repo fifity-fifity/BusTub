@@ -41,36 +41,33 @@ void DiskScheduler::Schedule(DiskRequest r) { request_queue_.Put(std::move(r)); 
 [[maybe_unused]] void DiskScheduler::Work(std::thread th) { th.join(); }
 
 void DiskScheduler::StartWorkerThread() {
+  // size_t pool_size = 64;
+  // ThreadPool threadpool(disk_manager_, pool_size);
   while (true) {
     // std::cout << "yes" << std::endl;
     auto task = request_queue_.Get();
     if (!task.has_value()) {
       break;
     }
-    // Launch a thread to perform the disk operation
-    /*std::thread th([&, task = std::move(task)]() mutable {
-      if (task->is_write_) {
-        disk_manager_->WritePage(task->page_id_, task->data_);
-      } else {
-        disk_manager_->ReadPage(task->page_id_, task->data_);
-      }
-      // Set the promise value once the disk operation is complete
-      task->callback_.set_value(true);
-    });*/
-    // q_.enqueue(std::move(th));
+
+    // threadpool.task_q_.Put(std::move(task));
     page_id_t frame_id = task->frame_id_;
     if (mp_.find(frame_id) == mp_.end()) {
       mp_[frame_id] = std::make_unique<PageThread>(disk_manager_);
     }
     mp_[frame_id]->q_.Put(std::move(task));
-    // Work(std::move(th));
   }
+  /*
+  for (size_t i = 0; i < pool_size; ++i) {
+    threadpool.task_q_.Put(std::nullopt);
+  }
+   */
   for (auto &pair : mp_) {
     pair.second->stop_ = true;
     pair.second->q_.Put(std::nullopt);
   }
-  std::cout << "No"
-            << ",thread map szie is " << mp_.size() << std::endl;
+
+  std::cout << "No, thread map szie is " << mp_.size() << '\n';
 }
 
 }  // namespace bustub
